@@ -1,0 +1,20 @@
+name: dart_lv_font_conv
+description: A Dart port of lv_font_conv for converting fonts for LVGL embedded GUI library.
+version: 1.0.0
+# repository: https://github.com/my_org/my_repo
+
+executables:
+  dart_lv_font_conv: dart_lv_font_conv
+
+environment:
+  sdk: ^3.9.2
+
+# Add regular dependencies here.
+dependencies:
+  args: ^2.4.2
+  path: ^1.9.0
+  collection: ^1.18.0
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.6

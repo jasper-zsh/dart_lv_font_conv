@@ -1,0 +1,3 @@
+[submodule "lv_font_conv"]
+	path = lv_font_conv
+	url = https://github.com/lvgl/lv_font_conv.git
