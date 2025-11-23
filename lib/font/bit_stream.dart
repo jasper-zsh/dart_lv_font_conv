@@ -27,6 +27,12 @@ class BitStream implements BitStreamInterface {
   /// Current bit position in the stream
   int get position => _byteIndex * 8 + _bitIndex;
 
+  /// Set current bit position in the stream (for compatibility)
+  set position(int value) {
+    _byteIndex = value ~/ 8;
+    _bitIndex = value % 8;
+  }
+
   /// Whether the stream uses big-endian bit order
   bool get bigEndian => _bigEndian;
 
@@ -34,6 +40,37 @@ class BitStream implements BitStreamInterface {
   set bigEndian(bool value) {
     // Note: This doesn't change the actual endian mode during operation
     // but provides API compatibility with the original implementation
+  }
+
+  /// Write a single byte (for compatibility)
+  void writeByte(int value) {
+    writeBits(value, 8);
+  }
+
+  /// Read bits from the stream (simplified implementation for compatibility)
+  int readBits(int bits, bool signed) {
+    if (bits == 0) return 0;
+
+    final currentPos = position;
+    int result = 0;
+
+    // Simple implementation - read from buffer at current position
+    for (int i = 0; i < bits; i++) {
+      final bytePos = (currentPos + i) ~/ 8;
+      final bitPos = (currentPos + i) % 8;
+
+      if (bytePos >= _buffer.length) break;
+
+      final bitValue = (_buffer[bytePos] >> (7 - bitPos)) & 1;
+      result = (result << 1) | bitValue;
+    }
+
+    // Handle signed values
+    if (signed && bits > 0 && (result & (1 << (bits - 1))) != 0) {
+      result -= (1 << bits);
+    }
+
+    return result;
   }
 
   /// Get the current buffer contents

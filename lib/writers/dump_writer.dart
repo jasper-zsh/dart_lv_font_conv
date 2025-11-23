@@ -2,6 +2,7 @@
 library;
 
 import 'dart:convert';
+import '../collect_font_data.dart';
 
 /// Dump writer that outputs human-readable font data
 Map<String, List<int>> dumpWriter(Map<String, dynamic> args, Map<String, dynamic> fontData) {

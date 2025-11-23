@@ -183,7 +183,7 @@ Future<Map<String, dynamic>> collectFontData(Map<String, dynamic> args) async {
   }
 
   // Add some kerning if not disabled
-  if (!args['no_kerning'] as bool) {
+  if (!(args['no_kerning'] as bool? ?? false)) {
     _addKerning(glyphs, mapping);
   }
 

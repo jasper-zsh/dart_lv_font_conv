@@ -2,6 +2,7 @@
 library;
 
 import '../utils.dart';
+import '../collect_font_data.dart';
 import 'table_head.dart';
 import 'table_cmap.dart';
 import 'table_glyf.dart';

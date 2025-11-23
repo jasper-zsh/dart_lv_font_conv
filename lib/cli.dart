@@ -32,6 +32,52 @@ class FontConverterCLI {
     }
   }
 
+  /// Parse unicode point from string (decimal or hex)
+  static int _parseUnicodePoint(String str) {
+    final trimmed = str.trim();
+    final hexMatch = RegExp(r'^0x([0-9a-f]+)$', caseSensitive: false).firstMatch(trimmed);
+    final decMatch = RegExp(r'^([0-9]+)$').firstMatch(trimmed);
+
+    if (hexMatch != null) {
+      final value = int.parse(hexMatch.group(1)!, radix: 16);
+      if (value > 0x10FFFF) throw AppError('$str is out of unicode range');
+      return value;
+    }
+
+    if (decMatch != null) {
+      final value = int.parse(decMatch.group(1)!);
+      if (value > 0x10FFFF) throw AppError('$str is out of unicode range');
+      return value;
+    }
+
+    throw AppError('$str is not a number');
+  }
+
+  /// Parse range specification like "0x20-0x7E,0x1000=>0x100"
+  static List<int> _parseRange(String str) {
+    final result = <int>[];
+
+    for (final part in str.split(',')) {
+      final match = RegExp(r'^(.+?)(?:-(.+?))?(?:=>(.+?))?$').firstMatch(part);
+      if (match == null) throw AppError('Invalid range: $part');
+
+      final startStr = match.group(1)!;
+      final endStr = match.group(2) ?? startStr;
+      final mappedStartStr = match.group(3) ?? startStr;
+
+      final start = _parseUnicodePoint(startStr);
+      final end = _parseUnicodePoint(endStr);
+
+      if (start > end) throw AppError('Invalid range: $part');
+
+      final mappedStart = _parseUnicodePoint(mappedStartStr);
+
+      result.addAll([start, end, mappedStart]);
+    }
+
+    return result;
+  }
+
   /// Parse command line arguments (public for testing)
   static Map<String, dynamic> parseArguments(List<String> arguments) {
     if (arguments.isEmpty) {
@@ -243,28 +289,7 @@ class FontConverterCLI {
     return result;
   }
 
-  /// Parse unicode point (decimal or hex)
-  static int _parseUnicodePoint(String str) {
-    final trimmed = str.trim();
-    final hexMatch = RegExp(r'^0x([0-9a-f]+)$', caseSensitive: false).firstMatch(trimmed);
-    final decMatch = RegExp(r'^([0-9]+)$').firstMatch(trimmed);
-
-    int value;
-    if (hexMatch != null) {
-      value = int.parse(hexMatch.group(1)!, radix: 16);
-    } else if (decMatch != null) {
-      value = int.parse(decMatch.group(1)!);
-    } else {
-      throw AppError('$str is not a valid number');
-    }
-
-    if (value > 0x10FFFF) {
-      throw AppError('$str is out of unicode range');
-    }
-
-    return value;
-  }
-
+  
   /// Print usage information
   static void _printUsage() {
     print('''

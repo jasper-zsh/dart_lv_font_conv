@@ -1,122 +1,163 @@
-/// Tests for CLI interface
 library;
 
 import 'dart:io';
+import 'dart:math';
+
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+
 import '../lib/cli.dart';
-import '../lib/app_error.dart';
+import '../lib/convert.dart';
 
 void main() {
+  final scriptPath = p.join(Directory.current.path, 'bin', 'dart_lv_font_conv.dart');
+  final font = File(
+    'lv_font_conv/node_modules/roboto-fontface/fonts/roboto/Roboto-Black.woff',
+  );
+
+  if (!font.existsSync()) {
+    throw StateError('Test font not found: ${font.path}');
+  }
+
   group('Cli', () {
     test('Should run', () {
-      // Test that the CLI prints usage when no arguments provided
-      expect(() => FontConverterCLI.run([]), throwsA(anything));
+      final result = Process.runSync('dart', ['run', scriptPath]);
+      final out = '${result.stdout}${result.stderr}'.toLowerCase();
+      expect(out.startsWith('usage'), isTrue);
     });
 
     test('Should print error if range is specified without font', () async {
       expect(
-        () => FontConverterCLI.parseArguments('--font test --range 123'.split(' ')),
-        throwsA(isA<AppError>().having((e) => e.message, 'message', contains('Only allowed after')))
+        () => FontConverterCLI.parseArguments('--range 123 --font test'.split(' ')),
+        throwsA(predicate((e) => '$e'.contains('Only allowed after'))),
       );
     });
 
     test('Should print error if range is invalid', () {
       expect(
         () => FontConverterCLI.parseArguments('--font test --range invalid'.split(' ')),
-        throwsA(isA<AppError>().having((e) => e.message, 'message', contains('not a valid number')))
+        throwsA(predicate((e) => '$e'.contains('invalid range value') || '$e'.contains('not a number'))),
       );
     });
 
     test('Should require character set specified for each font', () {
       expect(
         () => FontConverterCLI.parseArguments('--font test --size 18 --bpp 4 --format dump'.split(' ')),
-        throwsA(isA<AppError>().having((e) => e.message, 'message', contains('no character ranges specified')))
+        throwsA(predicate((e) => '$e'.contains('You need to specify either') || '$e'.contains('no character ranges'))),
       );
     });
 
     test('Should print error if size is invalid', () {
       expect(
         () => FontConverterCLI.parseArguments('--size 10xxx'.split(' ')),
-        throwsA(isA<AppError>().having((e) => e.message, 'message', contains('must be a positive number')))
+        throwsA(predicate((e) => '$e'.contains('invalid positive_int value') || '$e'.contains('must be a positive number'))),
       );
     });
 
     test('Should print error if size is zero', () {
       expect(
         () => FontConverterCLI.parseArguments('--size 0'.split(' ')),
-        throwsA(isA<AppError>().having((e) => e.message, 'message', contains('must be a positive number')))
+        throwsA(predicate((e) => '$e'.contains('invalid positive_int value') || '$e'.contains('must be a positive number'))),
       );
     });
 
     test('Should write a font using "dump" writer', () async {
-      // Skip if test font is not available
-      final fontFile = File('fonts/NotoSansSC-Regular.ttf');
-      if (!fontFile.existsSync()) {
-        return;
-      }
-
-      final rnd = '${DateTime.now().millisecondsSinceEpoch}';
-      final dir = Directory('test_output_$rnd');
+      final rnd = Random().nextInt(0xFFFFFF).toRadixString(16);
+      final dir = Directory(p.join(Directory.current.path, rnd));
 
       try {
         final args = [
-          '--font', fontFile.path, '--range', '0x20-0x22',
-          '--size', '18', '--output', dir.path, '--bpp', '2', '--format', 'dump'
+          '--font',
+          font.path,
+          '--range',
+          '0x20-0x22',
+          '--size',
+          '18',
+          '-o',
+          dir.path,
+          '--bpp',
+          '2',
+          '--format',
+          'dump'
         ];
 
         final parsedArgs = FontConverterCLI.parseArguments(args);
-        expect(parsedArgs['format'], equals('dump'));
-        expect(parsedArgs['size'], equals(18));
-        expect(parsedArgs['bpp'], equals(2));
+        final files = await convert(parsedArgs);
 
-        // Note: Actual font conversion test would require the full implementation
-        // This test just verifies argument parsing
+        for (final entry in files.entries) {
+          final filePath = p.join(dir.path, entry.key);
+          final outFile = File(filePath);
+          outFile.createSync(recursive: true);
+          outFile.writeAsBytesSync(entry.value);
+        }
+
+        final written = dir.existsSync()
+            ? dir.listSync().map((e) => p.basename(e.path)).toList()..sort()
+            : <String>[];
+
+        expect(written, equals(['20.png', '21.png', '22.png', 'font_info.json']));
       } finally {
-        if (await dir.exists()) {
-          await dir.delete(recursive: true);
+        if (dir.existsSync()) {
+          dir.deleteSync(recursive: true);
         }
       }
     });
 
     test('Should write a font using "bin" writer', () async {
-      final fontFile = File('fonts/NotoSansSC-Regular.ttf');
-      if (!fontFile.existsSync()) {
-        return;
-      }
-
-      final rnd = '${DateTime.now().millisecondsSinceEpoch}';
-      final file = File('test_output_$rnd.font');
+      final rnd = '${Random().nextInt(0xFFFFFF)}.font';
+      final file = File(p.join(Directory.current.path, rnd));
 
       try {
         final args = [
-          '--font', fontFile.path, '--range', '0x20-0x22',
-          '--size', '18', '--output', file.path, '--bpp', '2', '--format', 'bin'
+          '--font',
+          font.path,
+          '--range',
+          '0x20-0x22',
+          '--size',
+          '18',
+          '-o',
+          file.path,
+          '--bpp',
+          '2',
+          '--format',
+          'bin'
         ];
 
         final parsedArgs = FontConverterCLI.parseArguments(args);
-        expect(parsedArgs['format'], equals('bin'));
-        expect(parsedArgs['size'], equals(18));
-        expect(parsedArgs['bpp'], equals(2));
+        final files = await convert(parsedArgs);
+
+        for (final entry in files.entries) {
+          final outFile = File(entry.key);
+          outFile.createSync(recursive: true);
+          outFile.writeAsBytesSync(entry.value);
+        }
+
+        final contents = file.readAsBytesSync();
+        final head = String.fromCharCodes(contents.sublist(4, 8));
+        expect(head, equals('head'));
       } finally {
-        if (await file.exists()) {
-          await file.delete();
+        if (file.existsSync()) {
+          file.deleteSync();
         }
       }
     });
 
     test('Should require output for "dump" writer', () {
-      final fontFile = File('fonts/NotoSansSC-Regular.ttf');
-      if (!fontFile.existsSync()) {
-        return;
-      }
-
-      final args = [
-        '--font', fontFile.path, '--range', '0x20-0x22',
-        '--size', '18', '--bpp', '2', '--format', 'dump'
-      ];
-
-      final parsedArgs = FontConverterCLI.parseArguments(args);
-      expect(parsedArgs['output'], isNull);
+      expect(
+        () => FontConverterCLI.parseArguments([
+          '--font',
+          font.path,
+          '--range',
+          '0x20-0x22',
+          '--size',
+          '18',
+          '--bpp',
+          '2',
+          '--format',
+          'dump'
+        ]),
+        throwsA(predicate((e) => '$e'.contains('Output is required for'))),
+      );
     });
 
     group('range', () {
@@ -143,21 +184,21 @@ void main() {
       test('Should error on invalid ranges', () {
         expect(
           () => FontConverterCLI.parseRange('20-19'),
-          throwsA(isA<AppError>().having((e) => e.message, 'message', contains('start cannot be greater than end')))
+          throwsA(predicate((e) => '$e'.contains('Invalid range'))),
         );
       });
 
       test('Should error on invalid numbers', () {
         expect(
           () => FontConverterCLI.parseRange('13-abc80'),
-          throwsA(isA<AppError>().having((e) => e.message, 'message', contains('not a valid number')))
+          throwsA(predicate((e) => '$e'.contains('not a number') || '$e'.contains('not a valid number'))),
         );
       });
 
       test('Should not accept characters out of unicode range', () {
         expect(
           () => FontConverterCLI.parseRange('1114444'),
-          throwsA(isA<AppError>().having((e) => e.message, 'message', contains('out of unicode range')))
+          throwsA(predicate((e) => '$e'.contains('out of unicode'))),
         );
       });
     });

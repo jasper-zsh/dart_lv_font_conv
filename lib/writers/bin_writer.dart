@@ -2,6 +2,7 @@
 library;
 
 import '../font/font.dart';
+import '../collect_font_data.dart';
 
 /// Binary writer that outputs font data in binary format
 Map<String, List<int>> binWriter(Map<String, dynamic> args, Map<String, dynamic> fontData) {
