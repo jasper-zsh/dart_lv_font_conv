@@ -3,6 +3,5 @@
 import 'package:dart_lv_font_conv/cli.dart';
 
 void main(List<String> arguments) async {
-  final cli = FontConverterCLI();
-  await cli.run(arguments);
+  await FontConverterCLI.run(arguments);
 }

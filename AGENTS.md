@@ -2,6 +2,8 @@
 
 This is a dart project, translated from `lv_font_conv` project, used for convert font for lvgl.
 
+The original project was already cloned to `lv_font_conv` folder. If it does not exists, you can clone it with git submodule.
+
 `lib` folder is mapped to `lv_font_conv/lib`.
 
 Skip `freetype` because WASM is not supported in dart.
@@ -10,6 +12,7 @@ Skip `freetype` because WASM is not supported in dart.
 You **MUST** follow these rules:
 - Make best effort to keep the folder structure same as origin project.
 - Check the logic in original project when you create or edit **ANY** code, make sure they are matched.
+- **DO NOT** change unit test, make sure the dart version of unit tests is completely the same as original project.
 
 # Commands
 

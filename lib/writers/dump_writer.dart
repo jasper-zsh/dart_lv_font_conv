@@ -1,35 +1,59 @@
-import 'dart:convert';
-import '../dart_lv_font_conv_base.dart';
+/// Debug/dump format writer
+library;
 
-/// Write font in dump format (JSON)
-Map<String, String> writeDumpFormat(ConversionArgs args, FontData fontData) {
-  final output = args.output ?? 'font_info.json';
-  
-  final fontInfo = {
-    'ascent': fontData.ascent,
-    'descent': fontData.descent,
-    'typoAscent': fontData.typoAscent,
-    'typoDescent': fontData.typoDescent,
-    'typoLineGap': fontData.typoLineGap,
-    'size': fontData.size,
-    'underlinePosition': fontData.underlinePosition,
-    'underlineThickness': fontData.underlineThickness,
-    'glyphs': fontData.glyphs.map((glyph) => {
-      'code': glyph.code,
-      'advanceWidth': glyph.advanceWidth,
-      'bbox': {
-        'x': glyph.bbox.x,
-        'y': glyph.bbox.y,
-        'width': glyph.bbox.width,
-        'height': glyph.bbox.height,
-      },
-      'kerning': glyph.kerning,
-      if (!args.fullInfo) 'pixels': '<pixels data omitted>',
-      if (args.fullInfo) 'pixels': glyph.pixels,
-    }).toList(),
-  };
+import 'dart:convert';
+
+/// Dump writer that outputs human-readable font data
+Map<String, List<int>> dumpWriter(Map<String, dynamic> args, Map<String, dynamic> fontData) {
+  final buffer = StringBuffer();
+
+  // Write header
+  buffer.writeln('# Font Dump');
+  buffer.writeln('# Format: ${args['format']}');
+  buffer.writeln('# Size: ${fontData['size']}');
+  buffer.writeln('');
+
+  // Write metrics
+  buffer.writeln('## Font Metrics');
+  buffer.writeln('Ascent: ${fontData['ascent']}');
+  buffer.writeln('Descent: ${fontData['descent']}');
+  buffer.writeln('Typo Ascent: ${fontData['typoAscent']}');
+  buffer.writeln('Typo Descent: ${fontData['typoDescent']}');
+  buffer.writeln('Typo Line Gap: ${fontData['typoLineGap']}');
+  buffer.writeln('Underline Position: ${fontData['underlinePosition']}');
+  buffer.writeln('Underline Thickness: ${fontData['underlineThickness']}');
+  buffer.writeln('');
+
+  // Write glyphs
+  buffer.writeln('## Glyphs');
+  final glyphs = fontData['glyphs'] as List;
+  for (int i = 0; i < glyphs.length; i++) {
+    final glyph = glyphs[i] as Map<String, dynamic>;
+    buffer.writeln('### Glyph $i');
+    buffer.writeln('Code: ${glyph['code']} (U+${(glyph['code'] as int).toRadixString(16).padLeft(4, '0')})');
+    buffer.writeln('Advance Width: ${glyph['advanceWidth']}');
+
+    final bbox = glyph['bbox'] as Map<String, dynamic>;
+    buffer.writeln('Bounding Box: x=${bbox['x']}, y=${bbox['y']}, width=${bbox['width']}, height=${bbox['height']}');
+
+    final kerning = glyph['kerning'] as Map?;
+    if (kerning != null && kerning.isNotEmpty) {
+      buffer.writeln('Kerning:');
+      kerning.forEach((code, value) {
+        buffer.writeln('  U+${(code as int).toRadixString(16).padLeft(4, '0')}: $value');
+      });
+    }
+
+    final pixels = glyph['pixels'] as List;
+    buffer.writeln('Pixels (${pixels.length}x${(pixels.isNotEmpty ? (pixels[0] as List).length : 0)}):');
+    for (final row in pixels) {
+      final pixelRow = (row as List).map((p) => p == 1 ? '#' : '.').join('');
+      buffer.writeln('  $pixelRow');
+    }
+    buffer.writeln('');
+  }
 
   return {
-    output: const JsonEncoder.withIndent('  ').convert(fontInfo),
+    'font_dump.txt': utf8.encode(buffer.toString()),
   };
 }

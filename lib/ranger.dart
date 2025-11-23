@@ -1,14 +1,18 @@
 /// Merge ranges into single object
+library;
+
+/// Class for managing font character ranges and mappings
 class Ranger {
   final Map<int, CharMapping> _data = {};
 
-  /// Add range of characters with optional mapping
-  /// 
-  /// [font] - font path identifier
+  /// Add a range of characters to the ranger
+  ///
+  /// [font] - font identifier
   /// [start] - starting Unicode code point
-  /// [end] - ending Unicode code point  
-  /// [mappedStart] - where to map the first character to
-  /// Returns list of added character codes
+  /// [end] - ending Unicode code point
+  /// [mappedStart] - starting code point for mapping
+  ///
+  /// Returns list of added code points
   List<int> addRange(String font, int start, int end, int mappedStart) {
     final offset = mappedStart - start;
     final output = <int>[];
@@ -21,16 +25,17 @@ class Ranger {
     return output;
   }
 
-  /// Add symbols from string
-  /// 
-  /// [font] - font path identifier
-  /// [str] - string of characters to add
-  /// Returns list of added character codes
+  /// Add symbols from a string to the ranger
+  ///
+  /// [font] - font identifier
+  /// [str] - string containing characters to add
+  ///
+  /// Returns list of added code points
   List<int> addSymbols(String font, String str) {
     final output = <int>[];
 
-    for (int i = 0; i < str.runes.length; i++) {
-      final code = str.runes.elementAt(i);
+    for (final chr in str.runes) {
+      final code = chr;
       _setChar(font, code, code);
       output.add(code);
     }
@@ -38,12 +43,15 @@ class Ranger {
     return output;
   }
 
+  /// Set character mapping
   void _setChar(String font, int code, int mappedTo) {
-    _data[mappedTo] = CharMapping(font: font, code: code);
+    _data[mappedTo] = CharMapping(font, code);
   }
 
   /// Get the character mapping data
-  Map<int, CharMapping> get() => Map.unmodifiable(_data);
+  Map<int, CharMapping> get() {
+    return Map.unmodifiable(_data);
+  }
 }
 
 /// Class to store character mapping information
@@ -51,8 +59,5 @@ class CharMapping {
   final String font;
   final int code;
 
-  CharMapping({
-    required this.font,
-    required this.code,
-  });
+  CharMapping(this.font, this.code);
 }

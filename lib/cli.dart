@@ -1,129 +1,301 @@
+/// CLI interface for the font converter
+library;
+
 import 'dart:io';
-import 'package:args/args.dart';
-import 'package:dart_lv_font_conv/dart_lv_font_conv.dart';
+import 'dart:typed_data';
+import 'convert.dart';
+import 'app_error.dart';
 
-/// Command line interface for font converter
+/// Font converter CLI class
 class FontConverterCLI {
-  late ArgParser _parser;
-
-  FontConverterCLI() {
-    _setupParser();
-  }
-
-  /// Setup argument parser
-  void _setupParser() {
-    _parser = ArgParser()
-      ..addOption('size', abbr: 's', help: 'Output font size, pixels.', mandatory: true)
-      ..addOption('bpp', help: 'Bits per pixel, for antialiasing.', allowed: ['1', '2', '3', '4', '8'], mandatory: true)
-      ..addFlag('lcd', help: 'Enable subpixel rendering (horizontal pixel layout).', defaultsTo: false)
-      ..addFlag('lcd-v', help: 'Enable subpixel rendering (vertical pixel layout).', defaultsTo: false)
-      ..addFlag('use-color-info', help: 'Try to use glyph color info from font to create grayscale icons.', defaultsTo: false)
-      ..addOption('format', help: 'Output format.', allowed: FontConverter.supportedFormats, mandatory: true)
-      ..addMultiOption('font', help: 'Source font path. Can be used multiple times to merge glyphs from different fonts.')
-      ..addMultiOption('range', abbr: 'r', help: 'Range of glyphs to copy. Can be used multiple times.')
-      ..addMultiOption('symbols', help: 'List of characters to copy.')
-      ..addFlag('autohint-off', help: 'Disable autohinting for previously declared font')
-      ..addFlag('autohint-strong', help: 'Use more strong autohinting for previously declared font')
-      ..addFlag('force-fast-kern-format', help: 'Always use kern classes instead of pairs (might be larger but faster).', defaultsTo: false)
-      ..addFlag('no-compress', help: 'Disable built-in RLE compression.', defaultsTo: false)
-      ..addFlag('no-prefilter', help: 'Disable bitmap lines filter (XOR), used to improve compression ratio.', defaultsTo: false)
-      ..addFlag('no-kerning', help: 'Drop kerning info to reduce size (not recommended).', defaultsTo: false)
-      ..addFlag('byte-align', help: 'Pad bitmap line endings to whole bytes.', defaultsTo: false)
-      ..addOption('stride', help: 'Align each glyph\'s stride to the specified number of bytes.', allowed: ['0', '1', '4', '8', '16', '32', '64'], defaultsTo: '0')
-      ..addOption('align', help: 'Align each glyph address to the specified number of bytes.', allowed: ['1', '4', '8', '16', '32', '64', '128', '256', '512', '1024'], defaultsTo: '1')
-      ..addOption('lv-include', help: 'Set alternate "lvgl.h" path (for --format lvgl).')
-      ..addOption('lv-font-name', help: 'Variable name of the lvgl font structure.')
-      ..addOption('lv-fallback', help: 'Variable name of the lvgl font structure to use as fallback for this font.')
-      ..addFlag('full-info', help: 'Don\'t shorten "font_info.json" (include pixels data).', defaultsTo: false)
-      ..addOption('output', abbr: 'o', help: 'Output path.')
-      ..addFlag('help', abbr: 'h', help: 'Show usage information.', negatable: false)
-      ..addFlag('version', help: 'Show version information.', negatable: false);
-  }
-
-  /// Parse command line arguments and run conversion
-  Future<void> run(List<String> arguments) async {
+  /// Run the CLI with given arguments
+  static Future<void> run(List<String> arguments) async {
     try {
-      final results = _parser.parse(arguments);
-
-      if (results['help'] as bool) {
-        _printUsage();
-        return;
-      }
-
-      if (results['version'] as bool) {
-        print('dart_lv_font_conv version 1.0.0');
-        return;
-      }
-
-      final args = _parseArgs(results, arguments);
-      final converter = FontConverter();
-      final files = await converter.convert(args);
+      final args = parseArguments(arguments);
+      final files = await convert(args);
 
       // Write output files
       for (final entry in files.entries) {
         final file = File(entry.key);
-        await file.parent.create(recursive: true);
+        await file.create(recursive: true);
         await file.writeAsBytes(entry.value);
         print('Wrote: ${entry.key}');
       }
-    } on FormatException catch (e) {
-      print('Error: ${e.message}');
-      _printUsage();
-      exit(1);
-    } on AppError catch (e) {
-      print('Error: ${e.message}');
-      exit(1);
     } catch (e) {
-      print('Unexpected error: $e');
-      exit(1);
+      if (e is AppError) {
+        print('Error: ${e.message}');
+        exit(1);
+      } else {
+        print('Unexpected error: $e');
+        exit(1);
+      }
     }
   }
 
-  /// Parse parsed arguments into ConversionArgs
-  ConversionArgs _parseArgs(ArgResults results, List<String> arguments) {
-    final fontPaths = results['font'] as List<String>;
-    if (fontPaths.isEmpty) {
+  /// Parse command line arguments (public for testing)
+  static Map<String, dynamic> parseArguments(List<String> arguments) {
+    if (arguments.isEmpty) {
+      _printUsage();
+      exit(1);
+    }
+
+    final args = <String, dynamic>{
+      'font': <Map<String, dynamic>>[],
+      'format': 'lvgl',
+      'size': 12,
+      'bpp': 1,
+      'no_kerning': false,
+      'lcd': false,
+      'lcd_v': false,
+      'autohint_off': false,
+      'autohint_strong': false,
+      'use_color_info': false,
+      'fast_kerning': false,
+      'output': null,
+    };
+
+    int i = 0;
+    while (i < arguments.length) {
+      final arg = arguments[i];
+
+      switch (arg) {
+        case '--font':
+          i++;
+          if (i >= arguments.length) {
+            throw AppError('--font requires a file path');
+          }
+          final fontPath = arguments[i];
+          final fontFile = File(fontPath);
+          if (!fontFile.existsSync()) {
+            throw AppError('Font file not found: $fontPath');
+          }
+          final fontBytes = fontFile.readAsBytesSync();
+          (args['font'] as List).add({
+            'source_path': fontPath,
+            'source_bin': Uint8List.fromList(fontBytes),
+            'ranges': <Map<String, dynamic>>[],
+          });
+          break;
+
+        case '--range':
+          i++;
+          if (i >= arguments.length) {
+            throw AppError('--range requires a range specification');
+          }
+          final rangeSpec = arguments[i];
+          final ranges = _parseRange(rangeSpec);
+          if (args['font'].isEmpty) {
+            throw AppError('--range must come after --font');
+          }
+          ((args['font'] as List).last as Map)['ranges'].add({'range': ranges});
+          break;
+
+        case '--symbols':
+          i++;
+          if (i >= arguments.length) {
+            throw AppError('--symbols requires a string');
+          }
+          final symbols = arguments[i];
+          if (args['font'].isEmpty) {
+            throw AppError('--symbols must come after --font');
+          }
+          ((args['font'] as List).last as Map)['ranges'].add({'symbols': symbols});
+          break;
+
+        case '--format':
+          i++;
+          if (i >= arguments.length) {
+            throw AppError('--format requires a format name');
+          }
+          final format = arguments[i];
+          if (!supportedFormats.contains(format)) {
+            throw AppError('Unsupported format: $format. Supported: ${supportedFormats.join(', ')}');
+          }
+          args['format'] = format;
+          break;
+
+        case '--size':
+          i++;
+          if (i >= arguments.length) {
+            throw AppError('--size requires a number');
+          }
+          final size = int.tryParse(arguments[i]);
+          if (size == null || size <= 0) {
+            throw AppError('--size must be a positive number');
+          }
+          args['size'] = size;
+          break;
+
+        case '--bpp':
+          i++;
+          if (i >= arguments.length) {
+            throw AppError('--bpp requires a number');
+          }
+          final bpp = int.tryParse(arguments[i]);
+          if (bpp == null || bpp < 1 || bpp > 8) {
+            throw AppError('--bpp must be between 1 and 8');
+          }
+          args['bpp'] = bpp;
+          break;
+
+        case '-r':
+        case '--range':
+          i++;
+          if (i >= arguments.length) {
+            throw AppError('--range requires a range specification');
+          }
+          if (args['font'].isEmpty) {
+            throw AppError('Only allowed after --font');
+          }
+          final range = arguments[i];
+          final parsedRange = parseRange(range);
+          ((args['font'] as List).last as Map)['ranges'].add({'range': parsedRange});
+          break;
+
+        case '--no-kerning':
+          args['no_kerning'] = true;
+          break;
+
+        case '--lcd':
+          args['lcd'] = true;
+          break;
+
+        case '--lcd-v':
+          args['lcd_v'] = true;
+          break;
+
+        case '--autohint-off':
+          args['autohint_off'] = true;
+          break;
+
+        case '--autohint-strong':
+          args['autohint_strong'] = true;
+          break;
+
+        case '--use-color-info':
+          args['use_color_info'] = true;
+          break;
+
+        case '--fast-kerning':
+          args['fast_kerning'] = true;
+          break;
+
+        case '--output':
+          i++;
+          if (i >= arguments.length) {
+            throw AppError('--output requires a filename');
+          }
+          args['output'] = arguments[i];
+          break;
+
+        case '--help':
+        case '-h':
+          _printUsage();
+          exit(0);
+
+        default:
+          throw AppError('Unknown argument: $arg');
+      }
+
+      i++;
+    }
+
+    if (args['font'].isEmpty) {
       throw AppError('At least one font file must be specified with --font');
     }
 
-    final fonts = <FontOptions>[];
-    for (final fontPath in fontPaths) {
-      // TODO: Handle ranges and symbols properly
-      fonts.add(FontOptions(
-        sourcePath: fontPath,
-        ranges: [],
-      ));
+    // Validate that fonts have ranges
+    for (final font in args['font'] as List) {
+      final ranges = (font as Map)['ranges'] as List;
+      if (ranges.isEmpty) {
+        throw AppError('Font ${font['source_path']} has no character ranges specified');
+      }
     }
 
-    return ConversionArgs(
-      size: int.parse(results['size'] as String),
-      bpp: int.parse(results['bpp'] as String),
-      format: results['format'] as String,
-      font: fonts,
-      output: results['output'] as String?,
-      lcd: results['lcd'] as bool,
-      lcdV: results['lcd-v'] as bool,
-      useColorInfo: results['use-color-info'] as bool,
-      noCompress: results['no-compress'] as bool,
-      noPrefilter: results['no-prefilter'] as bool,
-      noKerning: results['no-kerning'] as bool,
-      stride: int.parse(results['stride'] as String),
-      align: int.parse(results['align'] as String),
-      fastKerning: results['force-fast-kern-format'] as bool,
-      lvInclude: results['lv-include'] as String?,
-      lvFontName: results['lv-font-name'] as String?,
-      lvFallback: results['lv-fallback'] as String?,
-      fullInfo: results['full-info'] as bool,
-      optsString: arguments.join(' '),
-    );
+    return args;
+  }
+
+  /// Parse range specification (public for testing)
+  static List<int> parseRange(String rangeSpec) {
+    final result = <int>[];
+
+    for (final part in rangeSpec.split(',')) {
+      final match = RegExp(r'^(.+?)(?:-(.+?))?(?:=>(.+?))?$').firstMatch(part.trim());
+      if (match == null) {
+        throw AppError('Invalid range specification: $part');
+      }
+
+      final startStr = match.group(1)!;
+      final endStr = match.group(2) ?? startStr;
+      final mappedStartStr = match.group(3) ?? startStr;
+
+      final start = _parseUnicodePoint(startStr);
+      final end = _parseUnicodePoint(endStr);
+      final mappedStart = _parseUnicodePoint(mappedStartStr);
+
+      if (start > end) {
+        throw AppError('Range start cannot be greater than end: $start > $end');
+      }
+
+      result.addAll([start, end, mappedStart]);
+    }
+
+    return result;
+  }
+
+  /// Parse unicode point (decimal or hex)
+  static int _parseUnicodePoint(String str) {
+    final trimmed = str.trim();
+    final hexMatch = RegExp(r'^0x([0-9a-f]+)$', caseSensitive: false).firstMatch(trimmed);
+    final decMatch = RegExp(r'^([0-9]+)$').firstMatch(trimmed);
+
+    int value;
+    if (hexMatch != null) {
+      value = int.parse(hexMatch.group(1)!, radix: 16);
+    } else if (decMatch != null) {
+      value = int.parse(decMatch.group(1)!);
+    } else {
+      throw AppError('$str is not a valid number');
+    }
+
+    if (value > 0x10FFFF) {
+      throw AppError('$str is out of unicode range');
+    }
+
+    return value;
   }
 
   /// Print usage information
-  void _printUsage() {
-    print('Dart LVGL Font Converter');
-    print('');
-    print('Usage: dart_lv_font_conv [options]');
-    print('');
-    print(_parser.usage);
+  static void _printUsage() {
+    print('''
+Dart LVGL Font Converter
+
+Usage: dart_lv_font_conv [options]
+
+Required:
+  --font FILE               Font file to process
+  --range RANGE             Character range (e.g., 0x20-0x7F,65-90=>65)
+  --symbols STRING          Specific characters to include
+
+Output options:
+  --format FORMAT           Output format: dump, bin, lvgl (default: lvgl)
+  --output FILE             Output filename (without extension)
+
+Font options:
+  --size N                  Font size in pixels (default: 12)
+  --bpp N                   Bits per pixel (1-8, default: 1)
+  --no-kerning              Disable kerning
+  --lcd                     Enable horizontal subpixel rendering
+  --lcd-v                   Enable vertical subpixel rendering
+  --autohint-off            Disable autohinting
+  --autohint-strong         Enable strong autohinting
+  --use-color-info          Use color information
+  --fast-kerning            Use faster kerning format (classes)
+
+Examples:
+  dart_lv_font_conv --font Arial.ttf --range 0x20-0x7F --size 16
+  dart_lv_font_conv --font font.ttf --symbols "HelloWorld" --format dump
+  dart_lv_font_conv --font font.ttf --range 65-90 --format lvgl --output my_font
+''');
   }
 }

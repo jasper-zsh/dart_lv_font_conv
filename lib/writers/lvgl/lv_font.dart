@@ -1,159 +1,106 @@
-import '../../dart_lv_font_conv_base.dart';
-import 'lv_table_head.dart';
+/// LVGL font wrapper class
+library;
+
+import '../../font/font.dart';
 import 'lv_table_cmap.dart';
 import 'lv_table_glyf.dart';
+import 'lv_table_head.dart';
 import 'lv_table_kern.dart';
-import 'package:path/path.dart' as path;
 
-/// LVGL Font class
+/// LVGL font class that extends the base Font class for LVGL format
 class LvFont {
-  final FontData src;
-  final ConversionArgs opts;
-  final String fontName;
-  final String fallback;
-  final String fallbackDeclaration;
+  final Font _font;
+  final Map<String, dynamic> _args;
+  late final LvTableCmap _lvCmap;
+  late final LvTableGlyf _lvGlyf;
+  late final LvTableHead _lvHead;
+  late final LvTableKern _lvKern;
 
-  late final LvHead head;
-  late final LvGlyf glyf;
-  late final LvCmap cmap;
-  late final LvKern kern;
-
-  // Font properties calculated from data
-  late final int subpixelsMode;
-  late final double kerningScale;
-  late final int advanceWidthFormat;
-
-  LvFont(this.src, this.opts) : fontName = _getFontName(opts), fallback = _getFallback(opts), fallbackDeclaration = _getFallbackDeclaration(opts) {
-    _validateOptions();
-    _initTables();
+  LvFont(Map<String, dynamic> fontData, Map<String, dynamic> args)
+      : _font = Font(fontData, args),
+        _args = args {
+    _lvCmap = LvTableCmap(_font.cmap);
+    _lvGlyf = LvTableGlyf(_font.glyf);
+    _lvHead = LvTableHead(_font.head);
+    _lvKern = LvTableKern(_font.kern);
   }
 
-  static String _getFontName(ConversionArgs opts) {
-    if (opts.lvFontName != null) {
-      return opts.lvFontName!;
-    }
-    return path.basenameWithoutExtension(opts.output ?? 'font');
-  }
+  /// Generate C code for LVGL font
+  String toCCode() {
+    final buffer = StringBuffer();
 
-  static String _getFallback(ConversionArgs opts) {
-    if (opts.lvFallback != null) {
-      return '&${opts.lvFallback}';
-    }
-    return 'NULL';
-  }
+    // Write header comment
+    _writeHeader(buffer);
 
-  static String _getFallbackDeclaration(ConversionArgs opts) {
-    if (opts.lvFallback != null) {
-      return 'extern const lv_font_t ${opts.lvFallback};\n';
-    }
-    return '';
-  }
+    // Write includes
+    _writeIncludes(buffer);
 
-  void _validateOptions() {
-    if (opts.bpp == 3 && !opts.noCompress) {
-      throw AppError('LVGL supports "--bpp 3" with compression only');
-    }
-  }
+    // Write glyph data
+    _writeGlyphData(buffer);
 
-  void _initTables() {
-    head = LvHead(this);
-    glyf = LvGlyf(this);
-    cmap = LvCmap(this);
-    kern = LvKern(this);
-    
-    // Calculate font properties
-    subpixelsMode = opts.lcd ? 1 : (opts.lcdV ? 2 : 0);
-    kerningScale = _calculateKerningScale();
-    advanceWidthFormat = _calculateAdvanceWidthFormat();
-  }
+    // Write glyph descriptions
+    _writeGlyphDescriptions(buffer);
 
-  double _calculateKerningScale() {
-    // TODO: Implement actual kerning scale calculation
-    return 1.0;
-  }
+    // Write character map
+    _writeCmap(buffer);
 
-  int _calculateAdvanceWidthFormat() {
-    // Determine if we need FP4.4 format based on kerning
-    return kern.hasKerning() ? 1 : 0;
-  }
-
-  String strideGuard() {
-    if (opts.stride > 0) {
-      return '''#if !LV_VERSION_CHECK(9, 3, 0)
-#error "At least LVGL v9.3 is required to use stride attribute of fonts"
-#endif''';
-    }
-    return '';
-  }
-
-  String largeFormatGuard() {
-    bool guardRequired = false;
-    int glyphsBinSize = 0;
-
-    for (final d in glyf.lvData) {
-      glyphsBinSize += d.bin.length;
-
-      if (d.glyph.bbox.width > 255 ||
-          d.glyph.bbox.height > 255 ||
-          d.glyph.bbox.x.abs() > 127 ||
-          d.glyph.bbox.y.abs() > 127 ||
-          (d.glyph.advanceWidth * 16).round() > 4096) {
-        guardRequired = true;
-      }
+    // Write kerning data
+    if (_font.hasKerning()) {
+      _writeKerning(buffer);
     }
 
-    if (glyphsBinSize > 1024 * 1024) guardRequired = true;
+    // Write font structure
+    _writeFontStructure(buffer);
 
-    if (!guardRequired) return '';
-
-    return '''
-#if (LV_FONT_FMT_TXT_LARGE == 0)
-#  error "Too large font or glyphs in $fontName.toUpperCase(). Enable LV_FONT_FMT_TXT_LARGE in lv_conf.h")
-#endif'''.trimLeft();
+    return buffer.toString();
   }
 
-  String toLVGL() {
-    final guardName = fontName.toUpperCase();
+  void _writeHeader(StringBuffer buffer) {
+    buffer.writeln('/*******************************************************************************');
+    buffer.writeln(' * Size: ${_font.src['size']}px');
+    buffer.writeln(' * Bpp: ${_args['bpp']}');
+    buffer.writeln(' * Use `lvglconv` to migrate the `lv_font_..._c arrays` to a compiled font file');
+    buffer.writeln(' ******************************************************************************/');
+    buffer.writeln();
+  }
 
-    return '''/*******************************************************************************
- * Size: ${src.size} px
- * Bpp: ${opts.bpp}
- * Opts: ${opts.optsString}
- ******************************************************************************/
+  void _writeIncludes(StringBuffer buffer) {
+    buffer.writeln('#ifdef __cplusplus');
+    buffer.writeln('extern "C" { /* C-declarations for C++ */');
+    buffer.writeln('#endif');
+    buffer.writeln();
+    buffer.writeln('#include "lvgl.h"');
+    buffer.writeln();
+  }
 
-#ifdef __has_include
-    #if __has_include("lvgl.h")
-        #ifndef LV_LVGL_H_INCLUDE_SIMPLE
-            #define LV_LVGL_H_INCLUDE_SIMPLE
-        #endif
-    #endif
-#endif
+  void _writeGlyphData(StringBuffer buffer) {
+    final glyphData = _lvGlyf.toCArray();
+    buffer.writeln(glyphData);
+    buffer.writeln();
+  }
 
-#ifdef LV_LVGL_H_INCLUDE_SIMPLE
-    #include "lvgl.h"
-#else
-    #include "${opts.lvInclude ?? 'lvgl/lvgl.h'}"
-#endif
+  void _writeGlyphDescriptions(StringBuffer buffer) {
+    final descriptions = _lvGlyf.toDescriptions();
+    buffer.writeln(descriptions);
+    buffer.writeln();
+  }
 
-${strideGuard()}
+  void _writeCmap(StringBuffer buffer) {
+    final cmapData = _lvCmap.toCArray();
+    buffer.writeln(cmapData);
+    buffer.writeln();
+  }
 
-#ifndef $guardName
-#define $guardName 1
-#endif
+  void _writeKerning(StringBuffer buffer) {
+    final kernData = _lvKern.toCArray();
+    if (kernData.isNotEmpty) {
+      buffer.writeln(kernData);
+      buffer.writeln();
+    }
+  }
 
-#if $guardName
-
-${glyf.toLVGL()}
-
-${cmap.toLVGL()}
-
-${kern.toLVGL()}
-
-${head.toLVGL()}
-
-${largeFormatGuard()}
-
-#endif /*#if $guardName*/
-''';
+  void _writeFontStructure(StringBuffer buffer) {
+    final fontStruct = _lvHead.toFontStructure();
+    buffer.writeln(fontStruct);
   }
 }

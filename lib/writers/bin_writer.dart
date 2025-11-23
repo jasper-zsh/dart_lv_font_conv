@@ -1,9 +1,23 @@
-import '../dart_lv_font_conv_base.dart';
+/// Binary format writer
+library;
 
-/// Write font in binary format
-Map<String, String> writeBinFormat(ConversionArgs args, FontData fontData) {
-  // TODO: Implement binary format writer
+import '../font/font.dart';
+
+/// Binary writer that outputs font data in binary format
+Map<String, List<int>> binWriter(Map<String, dynamic> args, Map<String, dynamic> fontData) {
+  final font = Font(fontData, args);
+  final binData = font.toBin();
+
+  // Generate output filename based on input
+  String outputName = 'font.bin';
+  if (args['output'] != null) {
+    outputName = args['output'] as String;
+    if (!outputName.endsWith('.bin')) {
+      outputName += '.bin';
+    }
+  }
+
   return {
-    args.output ?? 'font.bin': '// Binary format not yet implemented',
+    outputName: binData,
   };
 }

@@ -1,15 +1,23 @@
-import '../dart_lv_font_conv_base.dart';
+/// LVGL format writer
+library;
+
 import 'lvgl/lv_font.dart';
 
-/// Write font in LVGL format
-Map<String, String> writeLvglFormat(ConversionArgs args, FontData fontData) {
-  if (args.output == null) {
-    throw AppError('Output is required for "lvgl" writer');
+/// LVGL writer that outputs C code compatible with LVGL
+Map<String, List<int>> lvglWriter(Map<String, dynamic> args, Map<String, dynamic> fontData) {
+  final lvFont = LvFont(fontData, args);
+  final cCode = lvFont.toCCode();
+
+  // Generate output filename based on input
+  String outputName = 'font.c';
+  if (args['output'] != null) {
+    outputName = args['output'] as String;
+    if (!outputName.endsWith('.c')) {
+      outputName += '.c';
+    }
   }
 
-  final font = LvFont(fontData, args);
-
   return {
-    args.output!: font.toLVGL(),
+    outputName: cCode.codeUnits,
   };
 }
