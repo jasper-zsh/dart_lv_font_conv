@@ -70,6 +70,7 @@ class BitStream implements BitStreamInterface {
       result -= (1 << bits);
     }
 
+    position = currentPos + bits;
     return result;
   }
 
@@ -83,43 +84,18 @@ class BitStream implements BitStreamInterface {
   void writeBits(int value, int bits) {
     if (bits == 0) return;
 
-    value = value & ((1 << bits) - 1);
-    int remainingBits = bits;
+    for (int i = bits - 1; i >= 0; i--) {
+      final bit = (value >> i) & 1;
 
-    while (remainingBits > 0) {
       if (_byteIndex >= _buffer.length) {
         throw Exception('Buffer overflow in BitStream');
       }
 
-      final int bitsAvailable = 8 - _bitIndex;
-      final int bitsToWrite = remainingBits < bitsAvailable ? remainingBits : bitsAvailable;
-
-      final int shift = _bigEndian ? (bitsAvailable - bitsToWrite) : _bitIndex;
-      final int mask = ((1 << bitsToWrite) - 1) << shift;
-
-      final int currentByte = _buffer[_byteIndex];
-      final int newValue = (currentByte & ~mask) | ((value << shift) & mask);
-      _buffer[_byteIndex] = newValue & 0xFF;
-
-      if (_bigEndian) {
-        value >>= bitsToWrite;
-      } else {
-        _bitIndex += bitsToWrite;
-        if (_bitIndex >= 8) {
-          _bitIndex = 0;
-          _byteIndex++;
-        }
-        value <<= bitsAvailable - bitsToWrite;
-      }
-
-      remainingBits -= bitsToWrite;
-
-      if (_bigEndian) {
-        _bitIndex += bitsToWrite;
-        if (_bitIndex >= 8) {
-          _bitIndex = 0;
-          _byteIndex++;
-        }
+      _buffer[_byteIndex] |= bit << (7 - _bitIndex);
+      _bitIndex++;
+      if (_bitIndex == 8) {
+        _bitIndex = 0;
+        _byteIndex++;
       }
     }
   }

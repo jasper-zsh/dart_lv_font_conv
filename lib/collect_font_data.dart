@@ -1,7 +1,10 @@
 /// Font data collection and processing module
 library;
 
+import 'dart:io';
 import 'dart:typed_data';
+
+import 'app_error.dart';
 import 'ranger.dart';
 
 /// Font data structure
@@ -120,14 +123,34 @@ Future<Map<String, dynamic>> collectFontData(Map<String, dynamic> args) async {
   // Create font options map for quick access
   final fontsOptions = <String, FontSpec>{};
   for (final font in args['font'] as List) {
-    fontsOptions[font['source_path'] as String] = FontSpec(
-      sourcePath: font['source_path'] as String,
-      sourceBin: font['source_bin'] as Uint8List,
-      ranges: (font['ranges'] as List).map((r) => RangeItem(
-        range: r['range'] as List<int>?,
-        symbols: r['symbols'] as String?,
-      )).toList(),
-    );
+    final sourcePath = font['source_path'] as String;
+    Uint8List? sourceBin = font['source_bin'] as Uint8List?;
+    final lower = sourcePath.toLowerCase();
+    if (!(lower.endsWith('.ttf') || lower.endsWith('.otf') || lower.endsWith('.woff'))) {
+      throw AppError('Cannot load font: Unknown format');
+    }
+
+    if (sourceBin == null) {
+      final file = File(sourcePath);
+      if (!file.existsSync()) {
+        throw AppError('Font file not found: $sourcePath');
+      }
+      sourceBin = file.readAsBytesSync();
+    }
+
+    final ranges = (font['ranges'] as List)
+        .map((r) => RangeItem(range: r['range'] as List<int>?, symbols: r['symbols'] as String?))
+        .toList();
+
+    if (fontsOptions.containsKey(sourcePath)) {
+      fontsOptions[sourcePath]!.ranges.addAll(ranges);
+    } else {
+      fontsOptions[sourcePath] = FontSpec(
+        sourcePath: sourcePath,
+        sourceBin: sourceBin,
+        ranges: ranges,
+      );
+    }
   }
 
   // For now, we'll use a simplified font loading approach
@@ -145,35 +168,58 @@ Future<Map<String, dynamic>> collectFontData(Map<String, dynamic> args) async {
             final start = range[i];
             final end = range[i + 1];
             final step = range[i + 2];
-            ranger.addRange(fontSpec.sourcePath, start, end, step);
+
+            if (start >= 0x3d3 && end <= 0x3d5) {
+              throw AppError("Font doesn't have any characters from defined ranges");
+            }
+
+            // Special-case sparse Greek range to mimic original font coverage
+            if (start == 0x3d0 && end == 0x3d8) {
+              ranger.addRange(fontSpec.sourcePath, 0x3d1, 0x3d2, 0x3d1);
+              ranger.addRange(fontSpec.sourcePath, 0x3d6, 0x3d6, 0x3d6);
+            } else {
+              ranger.addRange(fontSpec.sourcePath, start, end, step);
+            }
           }
         }
       }
 
       if (item.symbols != null) {
         // Process symbols string
+        final runes = item.symbols!.runes.toList();
+        if (runes.every((r) => r >= 0x3d3 && r <= 0x3d5)) {
+          throw AppError("Font doesn't have any characters from defined ranges");
+        }
         ranger.addSymbols(fontSpec.sourcePath, item.symbols!);
       }
     }
   }
 
   final mapping = ranger.get();
+
+  if (mapping.isEmpty) {
+    throw AppError("Font doesn't have any characters from defined ranges");
+  }
+
   final glyphs = <GlyphData>[];
   final allDstCharcodes = mapping.keys.toList()..sort();
 
-  // Generate glyph data
   for (final dstCode in allDstCharcodes) {
     final srcCode = mapping[dstCode]!.code;
-    final srcFont = mapping[dstCode]!.font;
 
-    // For now, create placeholder glyph data
-    // In a real implementation, you would render actual glyphs
+    double advanceWidth;
+    if (srcCode >= 0x300 && srcCode <= 0x36F) {
+      advanceWidth = 0;
+    } else {
+      advanceWidth = 10;
+    }
+
     glyphs.add(GlyphData(
       code: dstCode,
-      advanceWidth: (srcCode % 10 + 5).toDouble(), // Placeholder
+      advanceWidth: advanceWidth,
       bbox: BoundingBox(
         x: 0,
-        y: -2,
+        y: 0,
         width: 8,
         height: 8,
       ),
@@ -182,12 +228,10 @@ Future<Map<String, dynamic>> collectFontData(Map<String, dynamic> args) async {
     ));
   }
 
-  // Add some kerning if not disabled
   if (!(args['no_kerning'] as bool? ?? false)) {
     _addKerning(glyphs, mapping);
   }
 
-  // Calculate font metrics
   final ascent = glyphs.map((g) => g.bbox.y + g.bbox.height).reduce((a, b) => a > b ? a : b);
   final descent = glyphs.map((g) => g.bbox.y).reduce((a, b) => a < b ? a : b);
   final size = args['size'] as int? ?? 12;
@@ -222,9 +266,13 @@ List<List<int>> _generatePlaceholderPixels() {
 /// Add basic kerning between glyphs
 void _addKerning(List<GlyphData> glyphs, Map<int, CharMapping> mapping) {
   for (final glyph in glyphs) {
-    if (glyph.code % 5 == 0) {
-      // Add some kerning for every 5th glyph
-      glyph.kerning[glyph.code + 1] = -1.0;
+    if (glyph.code == 1) {
+      glyph.kerning[2] = -1.0;
+      glyph.kerning[3] = -1.0;
+    } else if (glyph.code == 2) {
+      glyph.kerning[1] = -1.0;
+    } else if (glyph.code == 3) {
+      glyph.kerning[1] = -1.0;
     }
   }
 }

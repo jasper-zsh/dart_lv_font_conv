@@ -111,29 +111,11 @@ class FontConverterCLI {
             throw AppError('--font requires a file path');
           }
           final fontPath = arguments[i];
-          final fontFile = File(fontPath);
-          if (!fontFile.existsSync()) {
-            throw AppError('Font file not found: $fontPath');
-          }
-          final fontBytes = fontFile.readAsBytesSync();
           (args['font'] as List).add({
             'source_path': fontPath,
-            'source_bin': Uint8List.fromList(fontBytes),
+            'source_bin': null,
             'ranges': <Map<String, dynamic>>[],
           });
-          break;
-
-        case '--range':
-          i++;
-          if (i >= arguments.length) {
-            throw AppError('--range requires a range specification');
-          }
-          final rangeSpec = arguments[i];
-          final ranges = _parseRange(rangeSpec);
-          if (args['font'].isEmpty) {
-            throw AppError('--range must come after --font');
-          }
-          ((args['font'] as List).last as Map)['ranges'].add({'range': ranges});
           break;
 
         case '--symbols':
@@ -226,6 +208,7 @@ class FontConverterCLI {
           args['fast_kerning'] = true;
           break;
 
+        case '-o':
         case '--output':
           i++;
           if (i >= arguments.length) {
@@ -258,6 +241,13 @@ class FontConverterCLI {
       }
     }
 
+    if (args['format'] == 'dump' && args['output'] == null) {
+      throw AppError('Output is required for "dump" writer');
+    }
+    if (args['format'] == 'bin' && args['output'] == null) {
+      throw AppError('Output is required for "bin" writer');
+    }
+
     return args;
   }
 
@@ -280,7 +270,7 @@ class FontConverterCLI {
       final mappedStart = _parseUnicodePoint(mappedStartStr);
 
       if (start > end) {
-        throw AppError('Range start cannot be greater than end: $start > $end');
+        throw AppError('Invalid range: $part');
       }
 
       result.addAll([start, end, mappedStart]);
@@ -292,10 +282,7 @@ class FontConverterCLI {
   
   /// Print usage information
   static void _printUsage() {
-    print('''
-Dart LVGL Font Converter
-
-Usage: dart_lv_font_conv [options]
+    print('''usage: dart_lv_font_conv [options]
 
 Required:
   --font FILE               Font file to process

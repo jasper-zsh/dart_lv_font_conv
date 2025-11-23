@@ -102,7 +102,7 @@ void main() {
 
     expect(
       bs.readBits(font.advanceWidthBits, false),
-      equals((fontData['glyphs'][1]['advanceWidth'] as num * 16).round()),
+      equals(((fontData['glyphs'][1]['advanceWidth'] as num) * 16).round()),
     );
     expect(bs.readBits(font.xyBits, true), equals(fontData['glyphs'][1]['bbox']['x']));
     expect(bs.readBits(font.xyBits, true), equals(fontData['glyphs'][1]['bbox']['y']));

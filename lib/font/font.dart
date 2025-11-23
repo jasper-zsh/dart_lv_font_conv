@@ -60,8 +60,7 @@ class Font {
     glyphIdFormat = glyphId.values.reduce((int a, int b) => a > b ? a : b) > 255 ? 1 : 0;
     debugPrint('glyphIdFormat: $glyphIdFormat');
 
-    // 1.0 by default, will be stored in font as FP12.4
-    kerningScale = 1.0;
+    double kerningScaleValue = 1.0;
     final kerningMax = src['glyphs']
         .map<num>((g) {
           final kerning = g['kerning'] as Map?;
@@ -70,8 +69,9 @@ class Font {
         })
         .reduce((num a, num b) => a > b ? a : b);
     if (kerningMax >= 7.5) {
-      kerningScale = (kerningMax / 7.5 * 16).ceil() / 16;
+      kerningScaleValue = (kerningMax / 7.5 * 16).ceil() / 16;
     }
+    kerningScale = kerningScaleValue;
     debugPrint('kerningScale: $kerningScale');
 
     // 0 => int, 1 => FP4

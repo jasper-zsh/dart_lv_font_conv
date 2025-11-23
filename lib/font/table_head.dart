@@ -95,8 +95,8 @@ class Head {
 
     buf[O_SUBPIXELS_MODE] = f.subpixelsMode;
 
-    _writeInt16(buf, f.src['underlinePosition'], O_UNDERLINE_POSITION);
-    _writeUint16(buf, f.src['underlineThickness'], O_UNDERLINE_THICKNESS);
+    _writeInt16(buf, f.src['underlinePosition'] ?? 0, O_UNDERLINE_POSITION);
+    _writeUint16(buf, f.src['underlineThickness'] ?? 0, O_UNDERLINE_THICKNESS);
 
     return buf;
   }

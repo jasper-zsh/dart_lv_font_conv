@@ -71,26 +71,28 @@ class Kern {
     return _shouldUseFormat3(format0Data, format3Data);
   }
 
-  List<List<int>> _collectFormat0Data() {
+  List<List<dynamic>> _collectFormat0Data() {
     final f = font;
     final glyphs = sortBy<Map<String, dynamic>>(
-        f.src['glyphs'].toList(),
-        (g) => (f.glyphId[g['code']] ?? 0) as int
+      (f.src['glyphs'] as List).cast<Map<String, dynamic>>(),
+      (g) => (f.glyphId[g['code']] ?? 0) as int,
     );
 
-    final kernSorted = <List<int>>[];
+    final kernSorted = <List<dynamic>>[];
 
     for (final g in glyphs) {
       final kerning = g['kerning'] as Map?;
       if (kerning == null || kerning.isEmpty) continue;
 
       final glyphId = (f.glyphId[g['code']]!) as int;
-      final paired = sortBy<int>(kerning.keys.cast<int>().toList(),
-          (code) => (f.glyphId[code] ?? 0) as int);
+      final paired = sortBy<int>(
+        kerning.keys.map((code) => int.parse(code.toString())).toList(),
+        (code) => (f.glyphId[code] ?? 0) as int,
+      );
 
       for (final code in paired) {
         final glyphId2 = (f.glyphId[code] ?? 0) as int;
-        kernSorted.add([glyphId, glyphId2, (kerning[code] as num).toInt()]);
+        kernSorted.add([glyphId, glyphId2, kerning['$code'] as num]);
       }
     }
 
@@ -141,27 +143,27 @@ class Kern {
   _Format3Data? _collectFormat3Data() {
     final f = font;
     final glyphs = sortBy<Map<String, dynamic>>(
-        f.src['glyphs'].toList(),
-        (g) => (f.glyphId[g['code']] ?? 0) as int
+      (f.src['glyphs'] as List).cast<Map<String, dynamic>>(),
+      (g) => (f.glyphId[g['code']] ?? 0) as int,
     );
 
     // Extract kerning pairs for each character
-    final leftKernings = <int, Map<String, int>>{};
-    final rightKernings = <int, Map<String, int>>{};
+    final leftKernings = <int, Map<String, num>>{};
+    final rightKernings = <int, Map<String, num>>{};
 
     for (final g in glyphs) {
       final kerning = g['kerning'] as Map?;
       if (kerning == null || kerning.isEmpty) continue;
 
       final code = g['code'] as int;
-      final paired = kerning.keys.toList();
+      final paired = kerning.keys.map((k) => int.parse(k.toString())).toList();
 
-      leftKernings[code] = kerning.map((key, value) => MapEntry(key.toString(), (value as num).toInt()));
+      leftKernings[code] = kerning.map((key, value) => MapEntry(key.toString(), value as num));
 
       for (final codeKey in paired) {
-        final rightCode = codeKey as int;
+        final rightCode = codeKey;
         rightKernings[rightCode] = rightKernings[rightCode] ?? {};
-        rightKernings[rightCode]![code.toString()] = (kerning[codeKey] as num).toInt();
+        rightKernings[rightCode]![code.toString()] = kerning[codeKey.toString()] as num;
       }
     }
 
@@ -186,7 +188,7 @@ class Kern {
     );
   }
 
-  List<List<int>> _buildClasses(Map<int, Map<String, int>> kernings) {
+  List<List<int>> _buildClasses(Map<int, Map<String, num>> kernings) {
     final classes = <List<int>>[];
 
     for (final code in kernings.keys) {
@@ -210,7 +212,7 @@ class Kern {
     return classes;
   }
 
-  Map<String, int> _getClassPattern(Map<int, Map<String, int>> kernings, List<int> classList) {
+  Map<String, num> _getClassPattern(Map<int, Map<String, num>> kernings, List<int> classList) {
     if (classList.isEmpty) return {};
     return kernings[classList.first] ?? {};
   }
@@ -230,12 +232,12 @@ class Kern {
     return arr;
   }
 
-  List<int> _kernClassValues(
+  List<num> _kernClassValues(
     List<List<int>> leftClasses,
     List<List<int>> rightClasses,
-    Map<int, Map<String, int>> leftKernings,
+    Map<int, Map<String, num>> leftKernings,
   ) {
-    final arr = <int>[];
+    final arr = <num>[];
 
     for (final leftClass in leftClasses) {
       for (final rightClass in rightClasses) {
@@ -289,7 +291,7 @@ class Kern {
   }
 
   /// Public wrapper for _collectFormat0Data
-  List<List<int>> collectFormat0Data() {
+  List<List<dynamic>> collectFormat0Data() {
     return _collectFormat0Data();
   }
 
@@ -306,6 +308,11 @@ class Kern {
       'values': data.values,
     };
   }
+
+  /// Public wrapper for format3 binary generation (for tests)
+  List<int> createFormat3Data() {
+    return _createFormat3Data() ?? <int>[];
+  }
 }
 
 /// Data structure for format3 kerning table
@@ -314,7 +321,7 @@ class _Format3Data {
   final int rightClasses;
   final List<int> leftMapping;
   final List<int> rightMapping;
-  final List<int> values;
+  final List<num> values;
 
   _Format3Data({
     required this.leftClasses,

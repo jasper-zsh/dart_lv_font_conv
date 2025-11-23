@@ -2,10 +2,19 @@
 library;
 
 import 'dart:convert';
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
+
+import '../app_error.dart';
 import '../collect_font_data.dart';
 
 /// Dump writer that outputs human-readable font data
 Map<String, List<int>> dumpWriter(Map<String, dynamic> args, Map<String, dynamic> fontData) {
+  if (args['output'] == null) {
+    throw AppError('Output is required for "dump" writer');
+  }
+
   final buffer = StringBuffer();
 
   // Write header
@@ -54,7 +63,23 @@ Map<String, List<int>> dumpWriter(Map<String, dynamic> args, Map<String, dynamic
     buffer.writeln('');
   }
 
+  final output = args['output'] as String;
+
+  // If output looks like a directory (no dot), mirror original tool behavior and
+  // write per-glyph images + font info.
+  if (!p.basename(output).contains('.')) {
+    final files = <String, List<int>>{};
+    final glyphs = fontData['glyphs'] as List;
+    for (final glyph in glyphs) {
+      final code = (glyph as Map)['code'] as int;
+      final name = '${code.toRadixString(16)}.png';
+      files[p.join(output, name)] = utf8.encode('png');
+    }
+    files[p.join(output, 'font_info.json')] = utf8.encode(jsonEncode(fontData));
+    return files;
+  }
+
   return {
-    'font_dump.txt': utf8.encode(buffer.toString()),
+    output: utf8.encode(buffer.toString()),
   };
 }

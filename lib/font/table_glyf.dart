@@ -114,7 +114,9 @@ class Glyf {
     bs.writeBits(glyph['bbox']['width'], f.whBits);
     bs.writeBits(glyph['bbox']['height'], f.whBits);
 
-    final pixels = pixelsToBpp(List<List<int>>.from(glyph['pixels']));
+    final pixels = pixelsToBpp(
+      (glyph['pixels'] as List).map((line) => (line as List).cast<int>()).toList(),
+    );
 
     storePixels(bs, pixels);
 

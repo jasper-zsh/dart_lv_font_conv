@@ -91,9 +91,11 @@ void main() {
           outFile.writeAsBytesSync(entry.value);
         }
 
-        final written = dir.existsSync()
-            ? dir.listSync().map((e) => p.basename(e.path)).toList()..sort()
-            : <String>[];
+        List<String> written = <String>[];
+        if (dir.existsSync()) {
+          written = dir.listSync().map((e) => p.basename(e.path)).toList();
+          written.sort();
+        }
 
         expect(written, equals(['20.png', '21.png', '22.png', 'font_info.json']));
       } finally {
@@ -132,12 +134,17 @@ void main() {
           outFile.writeAsBytesSync(entry.value);
         }
 
-        final contents = file.readAsBytesSync();
+        final targetPath = files.keys.single;
+        final targetFile = File(targetPath);
+        final contents = targetFile.readAsBytesSync();
         final head = String.fromCharCodes(contents.sublist(4, 8));
         expect(head, equals('head'));
       } finally {
-        if (file.existsSync()) {
-          file.deleteSync();
+        for (final path in [file.path, '${file.path}.bin']) {
+          final f = File(path);
+          if (f.existsSync()) {
+            f.deleteSync();
+          }
         }
       }
     });

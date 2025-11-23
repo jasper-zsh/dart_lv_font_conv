@@ -13,7 +13,7 @@ void main() {
 
       compress(bitStream, data, opts);
 
-      final byteCount = bitStream.byteIndex;
+      final byteCount = (bitStream.position / 8).ceil();
       return bitStream.getBytes().take(byteCount).toList();
     }
 
@@ -34,20 +34,20 @@ void main() {
     test('collapse to bit', () {
       // 0001 0011 | 0011 1 0 00|01 000000
       expect(c([0x1, 0x3, 0x3, 0x3, 0x1], {'bpp': 4}), equals([
-        0b00010011,
-        0b00111000,
-        0b01000000
+        0x13,
+        0x38,
+        0x40
       ]));
     });
 
     test('collapse 10+ repeats with counter', () {
       final data = List.filled(15, 0);
-      data[data.length - 1] = 0b11;
+      data[data.length - 1] = 3;
       // 00 00 1111|1111111 0|00010 11 0
       expect(c(data, {'bpp': 2}), equals([
-        0b00001111,
-        0b11111110,
-        0b00010110
+        0x0F,
+        0xFE,
+        0x16
       ]));
     });
 
@@ -56,10 +56,10 @@ void main() {
       data[data.length - 1] = 3;
       // 00 00 1111|1111111 1|11111 00 1|1 0000000
       expect(c(data, {'bpp': 2}), equals([
-        0b00001111,
-        0b11111111,
-        0b11111001,
-        0b10000000
+        0x0F,
+        0xFF,
+        0xF9,
+        0x80
       ]));
     });
   });
