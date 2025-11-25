@@ -7,7 +7,7 @@ import 'package:test/test.dart';
 import '../lib/collect_font_data.dart';
 
 void main() {
-  final fontFile = File('lv_font_conv/node_modules/roboto-fontface/fonts/roboto/Roboto-Black.woff');
+  final fontFile = File('fonts/NotoSansSC-Regular.ttf');
   late String sourcePath;
   late List<int> sourceBin;
 
@@ -27,11 +27,13 @@ void main() {
             'source_path': sourcePath,
             'source_bin': sourceBin,
             'ranges': [
-              {'range': [0x41, 0x42, 0x80]}
-            ]
-          }
+              {
+                'range': [0x41, 0x42, 0x80],
+              },
+            ],
+          },
         ],
-        'size': 18
+        'size': 18,
       });
 
       final glyphs = out['glyphs'] as List;
@@ -47,11 +49,11 @@ void main() {
             'source_path': sourcePath,
             'source_bin': sourceBin,
             'ranges': [
-              {'symbols': 'AB'}
-            ]
-          }
+              {'symbols': 'AB'},
+            ],
+          },
         ],
-        'size': 18
+        'size': 18,
       });
 
       final glyphs = out['glyphs'] as List;
@@ -67,11 +69,13 @@ void main() {
             'source_path': sourcePath,
             'source_bin': sourceBin,
             'ranges': [
-              {'range': [0x300, 0x300, 0x300]}
-            ]
-          }
+              {
+                'range': [0x300, 0x300, 0x300],
+              },
+            ],
+          },
         ],
-        'size': 18
+        'size': 18,
       });
 
       final glyphs = out['glyphs'] as List;
@@ -87,18 +91,22 @@ void main() {
             'source_path': sourcePath,
             'source_bin': sourceBin,
             'ranges': [
-              {'range': [0x41, 0x41, 0x41]}
-            ]
+              {
+                'range': [0x41, 0x41, 0x41],
+              },
+            ],
           },
           {
             'source_path': sourcePath,
             'source_bin': sourceBin,
             'ranges': [
-              {'range': [0x51, 0x51, 0x51]}
-            ]
-          }
+              {
+                'range': [0x51, 0x51, 0x51],
+              },
+            ],
+          },
         ],
-        'size': 18
+        'size': 18,
       });
 
       final glyphs = out['glyphs'] as List;
@@ -112,11 +120,13 @@ void main() {
             'source_path': sourcePath,
             'source_bin': sourceBin,
             'ranges': [
-              {'range': [0x41, 0x41, 0x41, 0x51, 0x52, 0x51]}
-            ]
-          }
+              {
+                'range': [0x41, 0x41, 0x41, 0x51, 0x52, 0x51],
+              },
+            ],
+          },
         ],
-        'size': 18
+        'size': 18,
       });
 
       final glyphs = out['glyphs'] as List;
@@ -130,11 +140,13 @@ void main() {
             'source_path': sourcePath,
             'source_bin': sourceBin,
             'ranges': [
-              {'range': [0x3d0, 0x3d8, 0x3d0]}
-            ]
-          }
+              {
+                'range': [0x3d0, 0x3d8, 0x3d0],
+              },
+            ],
+          },
         ],
-        'size': 10
+        'size': 10,
       });
 
       final glyphs = out['glyphs'] as List;
@@ -151,12 +163,16 @@ void main() {
             'source_path': sourcePath,
             'source_bin': sourceBin,
             'ranges': [
-              {'range': [0x41, 0x41, 1]},
-              {'range': [0x56, 0x57, 2]}
-            ]
-          }
+              {
+                'range': [0x41, 0x41, 1],
+              },
+              {
+                'range': [0x56, 0x57, 2],
+              },
+            ],
+          },
         ],
-        'size': 18
+        'size': 18,
       });
 
       final glyphs = out['glyphs'] as List;
@@ -190,13 +206,19 @@ void main() {
               'source_path': sourcePath,
               'source_bin': sourceBin,
               'ranges': [
-                {'range': [0x3d3, 0x3d5, 0x3d3]}
-              ]
-            }
+                {
+                  'range': [0x3d3, 0x3d5, 0x3d3],
+                },
+              ],
+            },
           ],
-          'size': 18
+          'size': 18,
         }),
-        throwsA(predicate((e) => e.toString().contains("doesn't have any characters"))),
+        throwsA(
+          predicate(
+            (e) => e.toString().contains("doesn't have any characters"),
+          ),
+        ),
       );
     });
 
@@ -208,13 +230,17 @@ void main() {
               'source_path': sourcePath,
               'source_bin': sourceBin,
               'ranges': [
-                {'symbols': '\u03d3\u03d4\u03d5'}
-              ]
-            }
+                {'symbols': '\u03d3\u03d4\u03d5'},
+              ],
+            },
           ],
-          'size': 18
+          'size': 18,
         }),
-        throwsA(predicate((e) => e.toString().contains("doesn't have any characters"))),
+        throwsA(
+          predicate(
+            (e) => e.toString().contains("doesn't have any characters"),
+          ),
+        ),
       );
     });
 
@@ -224,15 +250,25 @@ void main() {
           'font': [
             {
               'source_path': Platform.script.toFilePath(),
-              'source_bin': File(Platform.script.toFilePath()).readAsBytesSync(),
+              'source_bin': File(
+                Platform.script.toFilePath(),
+              ).readAsBytesSync(),
               'ranges': [
-                {'range': [0x20, 0x20, 0x20]}
-              ]
-            }
+                {
+                  'range': [0x20, 0x20, 0x20],
+                },
+              ],
+            },
           ],
-          'size': 18
+          'size': 18,
         }),
-        throwsA(predicate((e) => RegExp(r'Cannot load font.*(Unknown|Unsupported)').hasMatch('$e'))),
+        throwsA(
+          predicate(
+            (e) => RegExp(
+              r'Cannot load font.*(Unknown|Unsupported)',
+            ).hasMatch('$e'),
+          ),
+        ),
       );
     });
   });

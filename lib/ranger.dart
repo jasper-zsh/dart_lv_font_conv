@@ -10,7 +10,7 @@ class Ranger {
   /// [font] - font identifier
   /// [start] - starting Unicode code point
   /// [end] - ending Unicode code point
-  /// [mappedStart] - starting code point for mapping
+  /// [mappedStart] - destination code point for `start` (used for mapping ranges)
   ///
   /// Returns list of added code points
   List<int> addRange(String font, int start, int end, int mappedStart) {

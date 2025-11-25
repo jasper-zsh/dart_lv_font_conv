@@ -10,10 +10,12 @@ import '../lib/cli.dart';
 import '../lib/convert.dart';
 
 void main() {
-  final scriptPath = p.join(Directory.current.path, 'bin', 'dart_lv_font_conv.dart');
-  final font = File(
-    'lv_font_conv/node_modules/roboto-fontface/fonts/roboto/Roboto-Black.woff',
+  final scriptPath = p.join(
+    Directory.current.path,
+    'bin',
+    'dart_lv_font_conv.dart',
   );
+  final font = File('fonts/NotoSansSC-Regular.ttf');
 
   if (!font.existsSync()) {
     throw StateError('Test font not found: ${font.path}');
@@ -28,36 +30,66 @@ void main() {
 
     test('Should print error if range is specified without font', () async {
       expect(
-        () => FontConverterCLI.parseArguments('--range 123 --font test'.split(' ')),
+        () => FontConverterCLI.parseArguments(
+          '--range 123 --font test'.split(' '),
+        ),
         throwsA(predicate((e) => '$e'.contains('Only allowed after'))),
       );
     });
 
     test('Should print error if range is invalid', () {
       expect(
-        () => FontConverterCLI.parseArguments('--font test --range invalid'.split(' ')),
-        throwsA(predicate((e) => '$e'.contains('invalid range value') || '$e'.contains('not a number'))),
+        () => FontConverterCLI.parseArguments(
+          '--font test --range invalid'.split(' '),
+        ),
+        throwsA(
+          predicate(
+            (e) =>
+                '$e'.contains('invalid range value') ||
+                '$e'.contains('not a number'),
+          ),
+        ),
       );
     });
 
     test('Should require character set specified for each font', () {
       expect(
-        () => FontConverterCLI.parseArguments('--font test --size 18 --bpp 4 --format dump'.split(' ')),
-        throwsA(predicate((e) => '$e'.contains('You need to specify either') || '$e'.contains('no character ranges'))),
+        () => FontConverterCLI.parseArguments(
+          '--font test --size 18 --bpp 4 --format dump'.split(' '),
+        ),
+        throwsA(
+          predicate(
+            (e) =>
+                '$e'.contains('You need to specify either') ||
+                '$e'.contains('no character ranges'),
+          ),
+        ),
       );
     });
 
     test('Should print error if size is invalid', () {
       expect(
         () => FontConverterCLI.parseArguments('--size 10xxx'.split(' ')),
-        throwsA(predicate((e) => '$e'.contains('invalid positive_int value') || '$e'.contains('must be a positive number'))),
+        throwsA(
+          predicate(
+            (e) =>
+                '$e'.contains('invalid positive_int value') ||
+                '$e'.contains('must be a positive number'),
+          ),
+        ),
       );
     });
 
     test('Should print error if size is zero', () {
       expect(
         () => FontConverterCLI.parseArguments('--size 0'.split(' ')),
-        throwsA(predicate((e) => '$e'.contains('invalid positive_int value') || '$e'.contains('must be a positive number'))),
+        throwsA(
+          predicate(
+            (e) =>
+                '$e'.contains('invalid positive_int value') ||
+                '$e'.contains('must be a positive number'),
+          ),
+        ),
       );
     });
 
@@ -78,7 +110,7 @@ void main() {
           '--bpp',
           '2',
           '--format',
-          'dump'
+          'dump',
         ];
 
         final parsedArgs = FontConverterCLI.parseArguments(args);
@@ -97,7 +129,10 @@ void main() {
           written.sort();
         }
 
-        expect(written, equals(['20.png', '21.png', '22.png', 'font_info.json']));
+        expect(
+          written,
+          equals(['20.png', '21.png', '22.png', 'font_info.json']),
+        );
       } finally {
         if (dir.existsSync()) {
           dir.deleteSync(recursive: true);
@@ -122,7 +157,7 @@ void main() {
           '--bpp',
           '2',
           '--format',
-          'bin'
+          'bin',
         ];
 
         final parsedArgs = FontConverterCLI.parseArguments(args);
@@ -161,7 +196,7 @@ void main() {
           '--bpp',
           '2',
           '--format',
-          'dump'
+          'dump',
         ]),
         throwsA(predicate((e) => '$e'.contains('Output is required for'))),
       );
@@ -185,7 +220,10 @@ void main() {
       });
 
       test('Should accept range with mapping', () {
-        expect(FontConverterCLI.parseRange('42-45=>0x48'), equals([42, 45, 72]));
+        expect(
+          FontConverterCLI.parseRange('42-45=>0x48'),
+          equals([42, 45, 72]),
+        );
       });
 
       test('Should error on invalid ranges', () {
@@ -198,7 +236,13 @@ void main() {
       test('Should error on invalid numbers', () {
         expect(
           () => FontConverterCLI.parseRange('13-abc80'),
-          throwsA(predicate((e) => '$e'.contains('not a number') || '$e'.contains('not a valid number'))),
+          throwsA(
+            predicate(
+              (e) =>
+                  '$e'.contains('not a number') ||
+                  '$e'.contains('not a valid number'),
+            ),
+          ),
         );
       });
 
