@@ -37,6 +37,19 @@ void main() async {
 }
 ```
 
+## Cloning
+
+This repository uses git submodules:
+
+- `lv_font_conv/` — the upstream LVGL C reference implementation
+- `dart_freetype/` — a Dart binding for libfreetype, used for glyph rasterization
+
+Clone with `--recurse-submodules`, or after a plain clone run:
+
+```bash
+git submodule update --init --recursive
+```
+
 ## Additional information
 
 This project is a Dart port of the original `lv_font_conv` C project. It aims to provide the same functionality while being more accessible to Dart developers.
